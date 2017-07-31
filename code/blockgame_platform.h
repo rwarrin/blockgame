@@ -146,6 +146,7 @@ typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 struct game_button_state
 {
 	bool32 EndedDown;
+	bool32 Tapped;
 	int32 HalfTransitionCount;  // NOTE(rick): Do we need this?
 };
 

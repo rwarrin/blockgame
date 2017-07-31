@@ -1,3 +1,18 @@
+/**
+ * TODO List
+ * * Random Room coloring
+ * * Game Keys
+ *   * Pause etc..
+ * * Collision Detection
+ * * TEXT RENDERING
+ *   * Scoring
+ *   * Menus
+ *   * Scoreboard? Local or Online
+ * * Sound?
+ * * Color Schemes / Better graphics
+ * * Performance (Smooth 60fps)
+ */
+
 static void
 ClearScreenToColor(struct game_screen_buffer *Buffer, uint32 R, uint32 G, uint32 B)
 {
@@ -73,35 +88,56 @@ RenderDebugGrid(struct game_screen_buffer *Buffer, v2 GridDims)
 static void
 GenerateRoom(struct room_chunk *Room, uint32 RoomWidth, uint32 RoomHeight)
 {
-	if(!Room->IsActiveRoom)
+	Room->RoomPosition = V2(0.0f, 0.0f);
+	uint32 Gap = 4 + (RandomInt32() % (RoomWidth - 8));
+
+	uint32 *CellData = Room->RoomData;
+	for(uint32 Y = 0; Y < RoomHeight; ++Y)
 	{
-		Room->IsActiveRoom = true;
-		Room->RoomShift = V2(0.0f, 0.0f);
-		uint32 Gap = RandomInt32() % RoomWidth;
-		uint32 *CellData = Room->RoomData;
-		for(uint32 Y = 0; Y < RoomHeight; ++Y)
+		for(uint32 X = 0; X < RoomWidth; ++X)
 		{
-			for(uint32 X = 0; X < RoomWidth; ++X)
+			*CellData = 0;
+			if(Y == 0)
 			{
-				if(Y == 0)
+				if((X >= Gap - 2) && (X <= Gap + 2) )
 				{
-					if((X >= Gap - 2) && (X <= Gap + 2) )
-					{
-						*CellData = 0;
-					}
-					else
-					{
-						*CellData = 1;
-					}
+					*CellData = 0;
 				}
-				if(X == 0 || X == RoomWidth - 1)
+				else
 				{
 					*CellData = 1;
 				}
-				++CellData;
 			}
+			++CellData;
 		}
 	}
+
+	// TODO(rick): We need to see why this is creating random blocks outside of
+	// the random block spawning areas, such as at x = 0 or y = 1
+	// TODO(rick): There is some strangeness going on with several rooms having
+	// the exact same layout (exit and random blocks), should check to see if
+	// this is just a side-effect of our psuedo-random number generator or an
+	// actual bug.
+	CellData = Room->RoomData;
+	*(CellData + (((3 + (RandomInt32() % 3)) * RoomWidth) + (5 + (RandomInt32() % 10)))) = 1;
+	*(CellData + (((9 + (RandomInt32() % 3)) * RoomWidth) + (5 + (RandomInt32() % 10)))) = 1;
+}
+
+static void
+RecycleRoom(struct game_state *GameState, struct room_chunk * Room)
+{
+	struct room_chunk *HighestRoom = Room;
+	for(uint32 RoomIndex = 0; RoomIndex < ArrayCount(GameState->World->Rooms); ++RoomIndex)
+	{
+		struct room_chunk *RoomToCheck = GameState->World->Rooms + RoomIndex;
+		if(RoomToCheck->RoomPosition.Y < HighestRoom->RoomPosition.Y)
+		{
+			HighestRoom = RoomToCheck;
+		}
+	}
+
+	GenerateRoom(Room, GameState->World->RoomWidthInGridCells, GameState->World->RoomHeightInGridCells);
+	Room->RoomPosition.Y = HighestRoom->RoomPosition.Y - (GameState->TileSideInPixels * GameState->World->RoomHeightInGridCells);
 }
 
 GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
@@ -129,36 +165,58 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			struct room_chunk *Room = (GameState->World->Rooms + RoomIndex);
 			Room->RoomData = PushArray(&GameState->WorldArena, RoomDataSize, uint32);
 			GenerateRoom(Room, GameState->World->RoomWidthInGridCells, GameState->World->RoomHeightInGridCells);
+			Room->RoomPosition.Y = -((GameState->World->RoomHeightInGridCells * GameState->TileSideInPixels) * RoomIndex);
 		}
 
-		GameState->WorldShiftHeight = Buffer->Height * 0.4f;
+		GameState->WorldShiftHeight = Buffer->Height * 0.3f;
 		GameState->CameraFollowingPlayer = false;
 
 		Memory->IsInitialized = true;
 	}
 
-
 	if(Input->ButtonUp.EndedDown)
 	{
 		OutputDebugString("UP is pressed\n");
+		GameState->PlayerEntity.Velocity = V2(0.0f, -820.0f);
 	}
 	if(Input->ButtonDown.EndedDown)
 	{
 		OutputDebugString("DOWN is pressed\n");
 	}
-	if(Input->ButtonLeft.EndedDown)
+	if(Input->ButtonLeft.Tapped)
 	{
 		OutputDebugString("LEFT is pressed\n");
-		GameState->PlayerEntity.Velocity = V2(-50.0f, -380.0f);
+		GameState->PlayerEntity.Velocity = V2(-60.0f, -420.0f);
 	}
-	if(Input->ButtonRight.EndedDown)
+	if(Input->ButtonRight.Tapped)
 	{
 		OutputDebugString("RIGHT is pressed\n");
-		GameState->PlayerEntity.Velocity = V2(50.0f, -380.0f);
+		GameState->PlayerEntity.Velocity = V2(60.0f, -420.0f);
 	}
 
 	GameState->PlayerEntity.Position = GameState->PlayerEntity.Position + (GameState->PlayerEntity.Velocity * Input->dtForFrame);
 	GameState->PlayerEntity.Velocity = GameState->PlayerEntity.Velocity + (GameState->Gravity * Input->dtForFrame);
+	// TODO(rick): Perhaps we can extract this out into a function, possibly
+	// combining this with the collision detection when it's added. Not
+	// required, but a probably nice to have.
+	if((GameState->PlayerEntity.Position.X - (0.5f * GameState->TileSideInPixels) <= 0.0f) ||
+	   (GameState->PlayerEntity.Position.X + (0.5f * GameState->TileSideInPixels) >= Buffer->Width))
+	{
+		GameState->PlayerEntity.Velocity.X = 0.0f;
+		GameState->PlayerEntity.Velocity.Y = 0.7f * GameState->PlayerEntity.Velocity.Y;
+		GameState->PlayerEntity.Velocity = GameState->PlayerEntity.Velocity + (GameState->Gravity * Input->dtForFrame);
+		GameState->PlayerEntity.Position = GameState->PlayerEntity.Position + (GameState->PlayerEntity.Velocity * Input->dtForFrame);
+
+		if(GameState->PlayerEntity.Position.X < Buffer->Width / 2.0f)
+		{
+			GameState->PlayerEntity.Position.X = 0.0f + (0.5f * GameState->TileSideInPixels);
+		}
+		else
+		{
+			GameState->PlayerEntity.Position.X = Buffer->Width - (0.5f * GameState->TileSideInPixels);
+		}
+	}
+
 	if((GameState->PlayerEntity.Position.Y <= GameState->WorldShiftHeight) ||
 	   (GameState->CameraFollowingPlayer))
 	{
@@ -168,15 +226,22 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			++RoomIndex)
 		{
 			struct room_chunk *Room = GameState->World->Rooms + RoomIndex;
-			if(Room->IsActiveRoom)
+			Room->RoomPosition = Room->RoomPosition + ((-1.0f * GameState->PlayerEntity.Velocity) * Input->dtForFrame);
+			Room->RoomPosition.X = 0.0f;
+		}
+		for(uint32 RoomIndex = 0;
+			RoomIndex < ArrayCount(GameState->World->Rooms);
+			++RoomIndex)
+		{
+			struct room_chunk *Room = GameState->World->Rooms + RoomIndex;
+			if(Room->RoomPosition.Y > Buffer->Height + (GameState->World->RoomHeightInGridCells * GameState->TileSideInPixels))
 			{
-				Room->RoomShift = Room->RoomShift + ((-1.0f * GameState->PlayerEntity.Velocity) * Input->dtForFrame);
-				Room->RoomShift.X = 0.0f;
+				RecycleRoom(GameState, Room);
 			}
 		}
 	}
 
-	ClearScreenToColor(Buffer, 0x33, 0xaa, 0xff);
+	ClearScreenToColor(Buffer, 0xff, 0xff, 0xff);
 	for(uint32 RoomIndex = 0;
 		RoomIndex < ArrayCount(GameState->World->Rooms);
 		++RoomIndex)
@@ -190,10 +255,8 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			{
 				if(*RoomData == 1)
 				{
-					v2 BlockPosition = (GameState->TileSideInPixels * V2(X, Y)) +
-						V2(0.0f, RoomIndex * (GameState->TileSideInPixels * GameState->World->RoomHeightInGridCells)) +
-						Room->RoomShift;
-					DrawRectangle(Buffer, BlockPosition, BlockDims, V3(0xff, 0x33, 0x33));
+					v2 BlockPosition = Room->RoomPosition + (GameState->TileSideInPixels * V2(X, Y));
+					DrawRectangle(Buffer, BlockPosition, BlockDims, V3(0x33, 0xaa, 0xff));
 				}
 				++RoomData;
 			}
@@ -201,7 +264,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	}
 	v2 RectSize = GameState->TileSideInPixels * V2(1.0f, 1.0f);
 	v2 RectPos = GameState->PlayerEntity.Position - (0.5f * RectSize);
-	DrawRectangle(Buffer, RectPos, RectSize, V3(0xff, 0xff, 0xff));
+	DrawRectangle(Buffer, RectPos, RectSize, V3(0x00, 0x00, 0x00));
 
-	RenderDebugGrid(Buffer, V2(GameState->TileSideInPixels, GameState->TileSideInPixels));
+	//RenderDebugGrid(Buffer, V2(GameState->TileSideInPixels, GameState->TileSideInPixels));
 }

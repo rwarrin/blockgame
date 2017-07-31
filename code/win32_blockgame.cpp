@@ -71,6 +71,10 @@ Win32ProcessKeyboardMessage(struct game_button_state *Button, bool32 IsDown)
 		Button->EndedDown = IsDown;
 		++Button->HalfTransitionCount;
 	}
+	if(Button->EndedDown)
+	{
+		Button->Tapped = true;
+	}
 }
 
 inline static LARGE_INTEGER

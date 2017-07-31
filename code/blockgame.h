@@ -122,9 +122,7 @@ struct entity
 struct room_chunk
 {
 	uint32 *RoomData;
-	bool32 IsActiveRoom;
 	v2 RoomPosition;
-	v2 RoomShift;
 };
 
 struct world
