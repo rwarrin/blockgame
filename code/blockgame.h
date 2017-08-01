@@ -9,6 +9,11 @@ union v2
 		real32 X;
 		real32 Y;
 	};
+	struct
+	{
+		real32 Width;
+		real32 Height;
+	};
 	real32 E[2];
 };
 
@@ -117,12 +122,16 @@ struct entity
 {
 	v2 Position;
 	v2 Velocity;
+	v2 Size;
 };
 
 struct room_chunk
 {
+	bool32 PlayerVisited;
 	uint32 *RoomData;
 	v2 RoomPosition;
+	v2 RoomDims;
+	v3 RoomColor;
 };
 
 struct world
@@ -132,10 +141,29 @@ struct world
 	struct room_chunk Rooms[16];
 };
 
+union color_scheme
+{
+	v3 Colors[6];
+	struct
+	{
+		union v3 Color1;
+		union v3 Color2;
+		union v3 Color3;
+		union v3 Color4;
+		union v3 Color5;
+		union v3 Color6;
+
+		union v3 PlayerColor;
+		union v3 BackgroundColor;
+	};
+};
+
 struct game_state
 {
 	bool32 IsInitialized;
 	bool32 CameraFollowingPlayer;
+
+	uint32 Score;
 
 	real32 PixelsPerMeter;
 	real32 MetersToPixels;
@@ -151,6 +179,10 @@ struct game_state
 	struct entity PlayerEntity;
 
 	v2 Gravity;
+
+	union color_scheme *Colors;
+	union color_scheme ColorSchemeLight;
+	union color_scheme ColorSchemeDark;
 };
 
 #define BLOCKGAME_H

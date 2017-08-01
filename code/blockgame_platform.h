@@ -167,6 +167,8 @@ struct game_input
 			struct game_button_state ButtonCancel;  // Escape
 
 			struct game_button_state ButtonPause;  // Space
+
+			struct game_button_state ButtonDebugColors;  // L
 		};
 	};
 };

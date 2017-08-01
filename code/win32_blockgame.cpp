@@ -156,6 +156,11 @@ Win32ProcessPendingMessages(struct game_input *Input)
 					{
 						Win32ProcessKeyboardMessage(&Input->ButtonRight, IsDown);
 					}
+
+					if(VKCode == 'L')
+					{
+						Win32ProcessKeyboardMessage(&Input->ButtonDebugColors, IsDown);
+					}
 				}
 			} break;
 			default:
