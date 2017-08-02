@@ -153,9 +153,11 @@ struct game_button_state
 struct game_input
 {
 	real32 dtForFrame;
+	real32 MouseX;
+	real32 MouseY;
 	union
 	{
-		struct game_button_state Buttons[7];
+		struct game_button_state Buttons[10];
 		struct
 		{
 			struct game_button_state ButtonLeft;
@@ -169,6 +171,8 @@ struct game_input
 			struct game_button_state ButtonPause;  // Space
 
 			struct game_button_state ButtonDebugColors;  // L
+			struct game_button_state ButtonDebugMouse;  // M
+			struct game_button_state ButtonReset;  // R
 		};
 	};
 };

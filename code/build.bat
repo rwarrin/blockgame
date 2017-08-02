@@ -1,6 +1,6 @@
 @echo off
 
-SET CompilerFlags=/nologo /Z7 /MTd /Oi
+SET CompilerFlags=/nologo /Z7 /MTd /Oi -DBLOCKGAME_DEBUG
 REM SET CompilerFlags=/nologo /MTd /Odi
 SET LinkerFlags=/incremental:no user32.lib gdi32.lib
 

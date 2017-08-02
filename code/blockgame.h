@@ -162,6 +162,7 @@ struct game_state
 {
 	bool32 IsInitialized;
 	bool32 CameraFollowingPlayer;
+	bool32 EnableDebugMouse;
 
 	uint32 Score;
 

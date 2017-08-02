@@ -216,6 +216,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 		GameState->WorldShiftHeight = Buffer->Height * 0.3f;
 		GameState->CameraFollowingPlayer = false;
+		GameState->EnableDebugMouse = false;
 
 		GameState->Score = 0;
 
@@ -237,6 +238,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	{
 		GameState->PlayerEntity.Velocity = V2(60.0f, -460.0f);
 	}
+#ifdef BLOCKGAME_DEBUG
 	if(Input->ButtonDebugColors.Tapped)
 	{
 		if(GameState->Colors == &GameState->ColorSchemeLight)
@@ -248,6 +250,15 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			GameState->Colors = &GameState->ColorSchemeLight;
 		}
 	}
+	if(Input->ButtonDebugMouse.Tapped)
+	{
+		GameState->EnableDebugMouse = !GameState->EnableDebugMouse;
+	}
+	if(Input->ButtonReset.Tapped)
+	{
+		Memory->IsInitialized = false;
+	}
+#endif
 
 	GameState->PlayerEntity.Position = GameState->PlayerEntity.Position + (GameState->PlayerEntity.Velocity * Input->dtForFrame);
 	GameState->PlayerEntity.Velocity = GameState->PlayerEntity.Velocity + (GameState->Gravity * Input->dtForFrame);
@@ -270,6 +281,12 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		{
 			GameState->PlayerEntity.Position.X = Buffer->Width - (0.5f * GameState->TileSideInPixels);
 		}
+	}
+	if(GameState->EnableDebugMouse)
+	{
+		GameState->PlayerEntity.Position.X = Input->MouseX;
+		GameState->PlayerEntity.Position.Y = Input->MouseY;
+		GameState->PlayerEntity.Velocity = V2(0.0f, 0.0f);
 	}
 
 	if((GameState->PlayerEntity.Position.Y <= GameState->WorldShiftHeight) ||
@@ -326,6 +343,8 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 						if(Collided)
 						{
 							Room->RoomColor = V3(0x00, 0x00, 0x00);
+							GameState->PlayerEntity.Velocity = V2(0.0f, 0.0f);
+							GameState->Gravity = V2(0.0f, 0.0f);
 						}
 					}
 					++CellData;

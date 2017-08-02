@@ -161,6 +161,14 @@ Win32ProcessPendingMessages(struct game_input *Input)
 					{
 						Win32ProcessKeyboardMessage(&Input->ButtonDebugColors, IsDown);
 					}
+					if(VKCode == 'M')
+					{
+						Win32ProcessKeyboardMessage(&Input->ButtonDebugMouse, IsDown);
+					}
+					if(VKCode == 'R')
+					{
+						Win32ProcessKeyboardMessage(&Input->ButtonReset, IsDown);
+					}
 				}
 			} break;
 			default:
@@ -239,6 +247,13 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, int CmdShow)
 		}
 
 		Win32ProcessPendingMessages(NewInput);
+
+		POINT MousePosition = {};
+		GetCursorPos(&MousePosition);
+		ScreenToClient(Window, &MousePosition);
+		NewInput->MouseX = MousePosition.x;
+		NewInput->MouseY = MousePosition.y;
+
 		GameUpdateAndRender(&ScreenBuffer, &GameMemory, NewInput);
 
 		HDC DeviceContext = GetDC(Window);
