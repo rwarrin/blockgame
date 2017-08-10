@@ -1,6 +1,5 @@
 /**
  * TODO List
- * * Random Room coloring
  * * Game Keys
  *   * Pause etc..
  * * Collision Detection
@@ -12,6 +11,9 @@
  * * Color Schemes / Better graphics
  * * Performance (Smooth 60fps)
  */
+
+#define STB_TRUETYPE_IMPLEMENTATION
+#include "stb_truetype.h"
 
 static void
 ClearScreenToColor(struct game_screen_buffer *Buffer, v3 Color)
@@ -165,6 +167,34 @@ TestCollision(v2 TestEntityPosition, v2 TestEntityDims,
 	return(Result);
 }
 
+static struct bitmap *
+CreateEmptyBitmap(struct memory_arena *Arena)
+{
+	struct bitmap *Result = PushStruct(Arena, struct bitmap);
+	Result->Width = 0;
+	Result->Height = 0;
+	Result->Pitch = 0;
+	Result->BytesPerPixel = 0;
+	Result->BitmapMemory = 0;
+
+	return(Result);
+}
+
+static struct bitmap *
+CreateEmptyBitmap(struct memory_arena *Arena, uint32 Width, uint32 Height)
+{
+	struct bitmap *Result = PushStruct(Arena, struct bitmap);
+	Result->Width = Width;
+	Result->Height = Height;
+	Result->BytesPerPixel = 4;
+	Result->Pitch = Result->Width * Result->BytesPerPixel;
+
+	uint32 BufferSize = (Width * Height) * Result->BytesPerPixel;
+	Result->BitmapMemory = PushArray(Arena, BufferSize, uint32);
+
+	return(Result);
+}
+
 GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
 	struct game_state *GameState = (game_state *)Memory->PermanentStorage;
@@ -218,7 +248,11 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		GameState->CameraFollowingPlayer = false;
 		GameState->EnableDebugMouse = false;
 
-		GameState->Score = 0;
+		GameState->Score = -1;
+		snprintf((char *)&GameState->ScoreAsString[0][0], ArrayCount(GameState->ScoreAsString[0]), "%u", GameState->Score);
+		snprintf((char *)&GameState->ScoreAsString[1][0], ArrayCount(GameState->ScoreAsString[1]), "%u", GameState->Score);
+		GameState->CurrentScoreString = GameState->ScoreAsString[0];
+		GameState->PreviousScoreString = GameState->ScoreAsString[1];
 
 		Memory->IsInitialized = true;
 	}
@@ -327,6 +361,19 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			{
 				Room->PlayerVisited = true;
 				++GameState->Score;
+
+				uint8 *TempScoreString = GameState->CurrentScoreString;
+				GameState->CurrentScoreString = GameState->PreviousScoreString;
+				GameState->PreviousScoreString = TempScoreString;
+				snprintf((char *)GameState->CurrentScoreString, ArrayCount(GameState->CurrentScoreString), "%u\n", GameState->Score);
+
+				// TODO(rick): Compare CurrentScoreString to PreviousScoreString
+				// to determine which character indexes have changed. Whichever
+				// have changed then we should recreate the character bitmap.
+				// TODO(rick): We need to think about this a bit, obviously only
+				// creating a few bitmaps at a time is better than all at once,
+				// but maybe just creating the score bitmap as one bitmap is
+				// better.. definitely easier, plus we get proper kerning.
 			}
 			uint32 *CellData = Room->RoomData;
 			for(uint32 Y = 0; Y < GameState->World->RoomHeightInGridCells; ++Y)

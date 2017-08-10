@@ -164,8 +164,6 @@ struct game_state
 	bool32 CameraFollowingPlayer;
 	bool32 EnableDebugMouse;
 
-	uint32 Score;
-
 	real32 PixelsPerMeter;
 	real32 MetersToPixels;
 	real32 TileSideInPixels;
@@ -184,6 +182,13 @@ struct game_state
 	union color_scheme *Colors;
 	union color_scheme ColorSchemeLight;
 	union color_scheme ColorSchemeDark;
+
+	uint32 Score;
+
+	uint8 *CurrentScoreString;
+	uint8 *PreviousScoreString;
+	uint8 ScoreAsString[2][16];
+	struct bitmap *ScoreTextCharacterBitmaps[16];
 };
 
 #define BLOCKGAME_H

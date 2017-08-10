@@ -63,6 +63,15 @@ struct game_screen_buffer
 	struct bitmap_header BitmapInfo;
 };
 
+struct bitmap
+{
+	void *BitmapMemory;
+	int32 Width;
+	int32 Height;
+	int32 BytesPerPixel;
+	int32 Pitch;
+};
+
 struct platform_state
 {
 	uint64 TotalSize;
