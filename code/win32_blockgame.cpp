@@ -95,6 +95,42 @@ Win32GetSecondsElapsed(LARGE_INTEGER Start, LARGE_INTEGER End)
 	return(Result);
 }
 
+PLATFORM_READ_ENTIRE_FILE_INTO_MEMORY(Win32ReadEntireFileIntoMemory)
+{
+	struct file_data Result = {};
+	HANDLE File = CreateFileA(FileName, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_ALWAYS, 0, 0);
+	if(File != INVALID_HANDLE_VALUE)
+	{
+		LARGE_INTEGER FileSize;
+		if(GetFileSizeEx(File, &FileSize))
+		{
+			uint32 FileSize32 = (uint32)FileSize.QuadPart;
+			DWORD BytesRead = 0;
+
+			Result.FileContents = (uint8 *)VirtualAlloc(0, FileSize32, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+			if(ReadFile(File, Result.FileContents, FileSize32, &BytesRead, 0) &&
+			   (FileSize32 == BytesRead))
+			{
+				Result.FileSize = BytesRead;
+			}
+			else
+			{
+				Result.FileSize = 0;
+				Result.FileContents = 0;
+			}
+		}
+		else
+		{
+			Result.FileSize = 0;
+			Result.FileContents = 0;
+		}
+
+		CloseHandle(File);
+	}
+
+	return(Result);
+}
+
 LRESULT CALLBACK
 Win32WindowsCallback(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
 {
@@ -227,6 +263,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, int CmdShow)
 	PlatformState.GameMemoryBlock = VirtualAlloc(0, PlatformState.TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	GameMemory.PermanentStorage = PlatformState.GameMemoryBlock;
 	GameMemory.TransientStorage = ((uint8 *)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize);
+	GameMemory.PlatformReadEntireFileIntoMemory = Win32ReadEntireFileIntoMemory;
 
 	struct game_input Input[2] = {};
 	struct game_input *NewInput = &Input[0];

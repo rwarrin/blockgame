@@ -78,6 +78,15 @@ struct platform_state
 	void *GameMemoryBlock;
 };
 
+struct file_data
+{
+	uint8 *FileContents;
+	uint32 FileSize;
+};
+
+#define PLATFORM_READ_ENTIRE_FILE_INTO_MEMORY(name) struct file_data name(char *FileName)
+typedef PLATFORM_READ_ENTIRE_FILE_INTO_MEMORY(platform_read_entire_file_into_memory);
+
 struct game_memory
 {
 	bool32 IsInitialized;
@@ -87,6 +96,8 @@ struct game_memory
 
 	uint64 TransientStorageSize;
 	void *TransientStorage;
+
+	platform_read_entire_file_into_memory *PlatformReadEntireFileIntoMemory;
 };
 
 struct memory_arena
@@ -185,6 +196,7 @@ struct game_input
 		};
 	};
 };
+
 
 #define BLOCKGAME_PLATFORM_H
 #endif

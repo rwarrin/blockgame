@@ -189,6 +189,9 @@ struct game_state
 	uint8 *PreviousScoreString;
 	uint8 ScoreAsString[2][16];
 	struct bitmap *ScoreTextCharacterBitmaps[16];
+
+	struct file_data FontData;
+	struct bitmap *Text;
 };
 
 #define BLOCKGAME_H
