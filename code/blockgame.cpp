@@ -98,6 +98,82 @@ DrawBitmap(struct game_screen_buffer *Buffer, v2 Position, struct bitmap Bitmap)
 }
 
 static void
+DrawTextBitmap(struct game_screen_buffer *Buffer, v2 Position, struct bitmap *Bitmap, v4 Color)
+{
+	int32 MinX = (int32)Position.X;
+	int32 MinY = (int32)Position.Y;
+	int32 MaxX = (int32)Position.X + Bitmap->Width;
+	int32 MaxY = (int32)Position.Y + Bitmap->Height;
+
+	int32 SourceOffsetX = 0;
+	if(MinX < 0)
+	{
+		SourceOffsetX = -MinX;
+		MinX = 0;
+	}
+
+	int32 SourceOffsetY = 0;
+	if(MinY < 0)
+	{
+		SourceOffsetY = -MinY;
+		MinY = 0;
+	}
+
+	if(MaxX > Buffer->Width)
+	{
+		MaxX = Buffer->Width;
+	}
+
+	if(MaxY > Buffer->Height)
+	{
+		MaxY = Buffer->Height;
+	}
+
+	if(MaxX < MinX) { MaxX = MinX; }
+	if(MaxY < MinY) { MaxY = MinY; }
+
+	uint8 *DestRow = ((uint8*)Buffer->BitmapMemory + (MinY * Buffer->Pitch) + (MinX * Buffer->BytesPerPixel));
+	uint8 *SourceRow = ((uint8*)Bitmap->BitmapMemory + (SourceOffsetY * Bitmap->Pitch) + (SourceOffsetX * Bitmap->BytesPerPixel));
+	for(uint32 Y = MinY; Y < MaxY; ++Y)
+	{
+		uint32 *Pixel = (uint32 *)DestRow;
+		uint32 *SourcePixel = (uint32 *)SourceRow;
+		for(uint32 X = MinX; X < MaxX; ++X)
+		{
+			if(*SourcePixel != 0)
+			{
+				real32 SourceAlpha = (real32)((*SourcePixel >> 24) & 0xff);
+				real32 RSA = (SourceAlpha / 255.0f) * Color.A;
+				real32 SourceRed = Color.A * Color.R;
+				real32 SourceGreen = Color.A * Color.G;
+				real32 SourceBlue = Color.A * Color.B;
+
+				real32 DestAlpha = (real32)((*Pixel >> 24) & 0xff);
+				real32 DestRed = (real32)((*Pixel >> 16) & 0xff);
+				real32 DestGreen = (real32)((*Pixel >> 8) & 0xff);
+				real32 DestBlue = (real32)((*Pixel >> 0) & 0xff);
+				real32 RDA = DestAlpha / 255.0f;
+
+				real32 InverseRSA = 1.0f - RSA;
+				real32 OutAlpha = 255.0f * (RSA + RDA - RSA * RDA);
+				real32 OutRed = (SourceRed * RSA) + (DestRed * (1.0f  - RSA));
+				real32 OutGreen = (SourceGreen * RSA) + (DestGreen * (1.0f  - RSA));
+				real32 OutBlue = (SourceBlue * RSA) + (DestBlue * (1.0f  - RSA));
+
+				*Pixel = ( ((uint32)(OutAlpha + 0.5f) << 24) |
+						   ((uint32)(OutRed + 0.5f) << 16) |
+						   ((uint32)(OutGreen + 0.5f) << 8) |
+						   ((uint32)(OutBlue + 0.5f) << 0) );
+			}
+
+			Pixel++, SourcePixel++;
+		}
+		DestRow += Buffer->Pitch;
+		SourceRow += Bitmap->Pitch;
+	}
+}
+
+static void
 RenderDebugGrid(struct game_screen_buffer *Buffer, v2 GridDims)
 {
 	uint32 *Pixel = (uint32 *)Buffer->BitmapMemory;
@@ -226,7 +302,8 @@ CreateEmptyBitmap(struct memory_arena *Arena, uint32 Width, uint32 Height)
 }
 
 static struct bitmap *
-TextToBitmap(struct memory_arena *Arena, struct game_state *GameState, char *String)
+TextToBitmap(struct memory_arena *Arena, struct game_state *GameState, real32 FontSize,
+			 char *String, int32 Width = 0, int32 Height = 0)
 {
 #if 1
 	int32 Ascent = 0;
@@ -236,27 +313,30 @@ TextToBitmap(struct memory_arena *Arena, struct game_state *GameState, char *Str
 
 	stbtt_fontinfo Font = {};
 	stbtt_InitFont(&Font, GameState->FontData.FileContents, stbtt_GetFontOffsetForIndex(GameState->FontData.FileContents, 0));
-	Scale = stbtt_ScaleForPixelHeight(&Font, 32.0f);
+	Scale = stbtt_ScaleForPixelHeight(&Font, FontSize);
 	stbtt_GetFontVMetrics(&Font, &Ascent, 0, 0);
 	Baseline = (int32)(Ascent * Scale);
 
-	uint32 BitmapWidth = 0;
-	uint32 BitmapHeight = 0;
-	for(char *TempString = String; *TempString != 0; ++TempString)
+	uint32 BitmapWidth = Width;
+	uint32 BitmapHeight = Height;
+	if((BitmapWidth == 0) || (BitmapHeight == 0))
 	{
-		int32 Advance = 0;
-		int32 LSB = 0;
-		int32 X0, Y0;
-		int32 X1, Y1;
-		stbtt_GetCodepointHMetrics(&Font, *TempString, &Advance, &LSB);
-		stbtt_GetCodepointBitmapBox(&Font, *TempString, Scale, Scale, &X0, &Y0, &X1, &Y1);
-
-		BitmapWidth += (X1 - X0) + (Advance * Scale);
-
-		uint32 CharacterHeight = Y1 - Y0;
-		if(CharacterHeight > BitmapHeight)
+		for(char *TempString = String; *TempString != 0; ++TempString)
 		{
-			BitmapHeight = CharacterHeight;
+			int32 Advance = 0;
+			int32 LSB = 0;
+			int32 X0, Y0;
+			int32 X1, Y1;
+			stbtt_GetCodepointHMetrics(&Font, *TempString, &Advance, &LSB);
+			stbtt_GetCodepointBitmapBox(&Font, *TempString, Scale, Scale, &X0, &Y0, &X1, &Y1);
+
+			BitmapWidth += (X1 - X0) + (Advance * Scale);
+
+			uint32 CharacterHeight = Y1 - Y0;
+			if(CharacterHeight > BitmapHeight)
+			{
+				BitmapHeight = CharacterHeight;
+			}
 		}
 	}
 
@@ -341,12 +421,6 @@ TextToBitmap(struct memory_arena *Arena, struct game_state *GameState, char *Str
 #endif
 }
 
-static struct bitmap *
-DrawText(char *String)
-{
-	return(NULL);
-}
-
 GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
 	struct game_state *GameState = (game_state *)Memory->PermanentStorage;
@@ -412,7 +486,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			Assert(GameState->FontData.FileSize != 0);
 			Assert(GameState->FontData.FileContents != 0);
 		}
-		GameState->Text = TextToBitmap(&GameState->WorldArena, GameState, "BESTIE");
+		GameState->Text = TextToBitmap(&GameState->WorldArena, GameState, 32.0f, "BESTIE!!");
 
 		Memory->IsInitialized = true;
 	}
@@ -585,7 +659,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	DrawRectangle(Buffer, GameState->PlayerEntity.Position - (0.5f * GameState->PlayerEntity.Size),
 				  GameState->PlayerEntity.Size, GameState->Colors->PlayerColor);
 
-	DrawBitmap(Buffer, V2(10, 10), *GameState->Text);
+	DrawTextBitmap(Buffer, GameState->PlayerEntity.Position + V2(10.0f, 25.0f), GameState->Text, V3(0x00, 0xff, 0xff, 1.00f));
 
 	//RenderDebugGrid(Buffer, V2(GameState->TileSideInPixels, GameState->TileSideInPixels));
 }

@@ -118,6 +118,37 @@ V3i(int32 A, int32 B, int32 C)
 	return(Result);
 }
 
+union v4
+{
+	struct
+	{
+		real32 X;
+		real32 Y;
+		real32 Z;
+		real32 W;
+	};
+	struct
+	{
+		real32 R;
+		real32 G;
+		real32 B;
+		real32 A;
+	};
+	real32 E[4];
+};
+
+inline v4
+V3(real32 A, real32 B, real32 C, real32 D)
+{
+	union v4 Result = {};
+	Result.X = A;
+	Result.Y = B;
+	Result.Z = C;
+	Result.W = D;
+
+	return(Result);
+}
+
 struct entity
 {
 	v2 Position;
@@ -188,7 +219,7 @@ struct game_state
 	uint8 *CurrentScoreString;
 	uint8 *PreviousScoreString;
 	uint8 ScoreAsString[2][16];
-	struct bitmap *ScoreTextCharacterBitmaps[16];
+	struct bitmap *ScoreBitmap;
 
 	struct file_data FontData;
 	struct bitmap *Text;
