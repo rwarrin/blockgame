@@ -160,6 +160,16 @@ EndTemporaryArena(struct temporary_memory TempMem)
 	--Arena->TempCount;
 }
 
+inline void
+ClearMemory(void *Memory, uint32 Size)
+{
+	uint8 *Byte = (uint8 *)Memory;
+	while(--Size > 0)
+	{
+		*Byte++ = 0x00;
+	}
+}
+
 #define GAME_UPDATE_AND_RENDER(name) void name(struct game_screen_buffer *Buffer, struct game_memory *Memory, struct game_input *Input)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 

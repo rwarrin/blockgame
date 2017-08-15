@@ -256,7 +256,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, int CmdShow)
 	Win32ResizeDIBSection(&ScreenBuffer, WindowDims.Width, WindowDims.Height);
 
 	struct game_memory GameMemory = {};
-	GameMemory.PermanentStorageSize = Kilobytes(800);
+	GameMemory.PermanentStorageSize = Kilobytes(4096);
 	GameMemory.TransientStorageSize = Kilobytes(200);
 	struct platform_state PlatformState = {};
 	PlatformState.TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;

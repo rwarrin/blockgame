@@ -138,7 +138,7 @@ union v4
 };
 
 inline v4
-V3(real32 A, real32 B, real32 C, real32 D)
+V4(real32 A, real32 B, real32 C, real32 D)
 {
 	union v4 Result = {};
 	Result.X = A;

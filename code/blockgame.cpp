@@ -303,7 +303,7 @@ CreateEmptyBitmap(struct memory_arena *Arena, uint32 Width, uint32 Height)
 
 static struct bitmap *
 TextToBitmap(struct memory_arena *Arena, struct game_state *GameState, real32 FontSize,
-			 char *String, int32 Width = 0, int32 Height = 0)
+			 char *String, struct bitmap *UseThisBitmap = 0, int32 Width = 0, int32 Height = 0)
 {
 #if 1
 	int32 Ascent = 0;
@@ -317,33 +317,47 @@ TextToBitmap(struct memory_arena *Arena, struct game_state *GameState, real32 Fo
 	stbtt_GetFontVMetrics(&Font, &Ascent, 0, 0);
 	Baseline = (int32)(Ascent * Scale);
 
-	uint32 BitmapWidth = Width;
-	uint32 BitmapHeight = Height;
-	if((BitmapWidth == 0) || (BitmapHeight == 0))
+	uint32 BitmapWidth = 0;
+	uint32 BitmapHeight = 0;
+	struct bitmap *Result = 0;
+	if(!UseThisBitmap)
 	{
-		for(char *TempString = String; *TempString != 0; ++TempString)
+		BitmapWidth = Width;
+		BitmapHeight = Height;
+		if((BitmapWidth == 0) || (BitmapHeight == 0))
 		{
-			int32 Advance = 0;
-			int32 LSB = 0;
-			int32 X0, Y0;
-			int32 X1, Y1;
-			stbtt_GetCodepointHMetrics(&Font, *TempString, &Advance, &LSB);
-			stbtt_GetCodepointBitmapBox(&Font, *TempString, Scale, Scale, &X0, &Y0, &X1, &Y1);
-
-			BitmapWidth += (X1 - X0) + (Advance * Scale);
-
-			uint32 CharacterHeight = Y1 - Y0;
-			if(CharacterHeight > BitmapHeight)
+			for(char *TempString = String; *TempString != 0; ++TempString)
 			{
-				BitmapHeight = CharacterHeight;
+				int32 Advance = 0;
+				int32 LSB = 0;
+				int32 X0, Y0;
+				int32 X1, Y1;
+				stbtt_GetCodepointHMetrics(&Font, *TempString, &Advance, &LSB);
+				stbtt_GetCodepointBitmapBox(&Font, *TempString, Scale, Scale, &X0, &Y0, &X1, &Y1);
+
+				BitmapWidth += (X1 - X0) + (Advance * Scale);
+
+				uint32 CharacterHeight = Y1 - Y0;
+				if(CharacterHeight > BitmapHeight)
+				{
+					BitmapHeight = CharacterHeight;
+				}
 			}
 		}
-	}
 
-	struct bitmap *Result = CreateEmptyBitmap(Arena, BitmapWidth, BitmapHeight);
+		Result = CreateEmptyBitmap(Arena, BitmapWidth, BitmapHeight);
+	}
+	else
+	{
+		ClearMemory(UseThisBitmap->BitmapMemory, (UseThisBitmap->Width * UseThisBitmap->Height) * UseThisBitmap->BytesPerPixel);
+		BitmapWidth = UseThisBitmap->Width;
+		BitmapHeight= UseThisBitmap->Height;
+		Result = UseThisBitmap;
+	}
 
 	struct temporary_memory TempArena = BeginTemporaryArena(Arena);
 	struct bitmap *TempBitmap = CreateEmptyBitmap(Arena, BitmapWidth, BitmapHeight);
+	ClearMemory(TempBitmap->BitmapMemory, (TempBitmap->Width * TempBitmap->Height) * TempBitmap->BytesPerPixel);
 	uint8 Character = 0;
 	while((Character = *String++) != 0)
 	{
@@ -474,9 +488,9 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		GameState->CameraFollowingPlayer = false;
 		GameState->EnableDebugMouse = false;
 
-		GameState->Score = -1;
-		snprintf((char *)&GameState->ScoreAsString[0][0], ArrayCount(GameState->ScoreAsString[0]), "%u", GameState->Score);
-		snprintf((char *)&GameState->ScoreAsString[1][0], ArrayCount(GameState->ScoreAsString[1]), "%u", GameState->Score);
+		GameState->Score = 0;
+		snprintf((char *)&GameState->ScoreAsString[0][0], ArrayCount(GameState->ScoreAsString[0]), "%d", GameState->Score);
+		snprintf((char *)&GameState->ScoreAsString[1][0], ArrayCount(GameState->ScoreAsString[1]), "%d", GameState->Score);
 		GameState->CurrentScoreString = GameState->ScoreAsString[0];
 		GameState->PreviousScoreString = GameState->ScoreAsString[1];
 
@@ -487,6 +501,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			Assert(GameState->FontData.FileContents != 0);
 		}
 		GameState->Text = TextToBitmap(&GameState->WorldArena, GameState, 32.0f, "BESTIE!!");
+		GameState->ScoreBitmap = TextToBitmap(&GameState->WorldArena, GameState, 32.0f, (char *)GameState->CurrentScoreString, 0, 128, 32);
 
 		Memory->IsInitialized = true;
 	}
@@ -599,7 +614,10 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 				uint8 *TempScoreString = GameState->CurrentScoreString;
 				GameState->CurrentScoreString = GameState->PreviousScoreString;
 				GameState->PreviousScoreString = TempScoreString;
-				snprintf((char *)GameState->CurrentScoreString, ArrayCount(GameState->CurrentScoreString), "%u\n", GameState->Score);
+				snprintf((char *)GameState->CurrentScoreString, ArrayCount(GameState->CurrentScoreString), "%u", GameState->Score);
+
+				GameState->ScoreBitmap = TextToBitmap(&GameState->WorldArena, GameState, 32.0f,
+													  (char *)GameState->CurrentScoreString, GameState->ScoreBitmap);
 
 				// TODO(rick): Compare CurrentScoreString to PreviousScoreString
 				// to determine which character indexes have changed. Whichever
@@ -659,7 +677,11 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	DrawRectangle(Buffer, GameState->PlayerEntity.Position - (0.5f * GameState->PlayerEntity.Size),
 				  GameState->PlayerEntity.Size, GameState->Colors->PlayerColor);
 
-	DrawTextBitmap(Buffer, GameState->PlayerEntity.Position + V2(10.0f, 25.0f), GameState->Text, V3(0x00, 0xff, 0xff, 1.00f));
+	DrawTextBitmap(Buffer, GameState->PlayerEntity.Position + V2(10.0f, 25.0f), GameState->Text, V4(0x00, 0xff, 0xff, 1.00f));
+	DrawTextBitmap(Buffer, V2(10, 10), GameState->ScoreBitmap, V4(GameState->Colors->PlayerColor.R,
+																  GameState->Colors->PlayerColor.G,
+																  GameState->Colors->PlayerColor.B,
+																  0.80f));
 
 	//RenderDebugGrid(Buffer, V2(GameState->TileSideInPixels, GameState->TileSideInPixels));
 }
