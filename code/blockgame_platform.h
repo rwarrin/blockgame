@@ -87,6 +87,9 @@ struct file_data
 #define PLATFORM_READ_ENTIRE_FILE_INTO_MEMORY(name) struct file_data name(char *FileName)
 typedef PLATFORM_READ_ENTIRE_FILE_INTO_MEMORY(platform_read_entire_file_into_memory);
 
+#define PLATFORM_WRITE_TO_FILE(name) bool32 name(char *FileName, void *Data, uint32 Size)
+typedef PLATFORM_WRITE_TO_FILE(platform_write_to_file);
+
 struct game_memory
 {
 	bool32 IsInitialized;
@@ -98,6 +101,7 @@ struct game_memory
 	void *TransientStorage;
 
 	platform_read_entire_file_into_memory *PlatformReadEntireFileIntoMemory;
+	platform_write_to_file *PlatformWriteToFile;
 };
 
 struct memory_arena
@@ -203,6 +207,7 @@ struct game_input
 			struct game_button_state ButtonDebugColors;  // L
 			struct game_button_state ButtonDebugMouse;  // M
 			struct game_button_state ButtonReset;  // R
+			struct game_button_state ButtonScreenshot;  // P
 		};
 	};
 };

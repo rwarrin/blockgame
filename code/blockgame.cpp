@@ -432,6 +432,44 @@ TextToBitmap(struct memory_arena *Arena, struct game_state *GameState, real32 Fo
 #endif
 }
 
+static void
+ExportScreenshot(struct game_memory *Memory, struct memory_arena *Arena, struct game_screen_buffer *Buffer)
+{
+	if(Memory->PlatformWriteToFile != NULL)
+	{
+		struct temporary_memory TempArena = BeginTemporaryArena(Arena);
+		struct bitmap_header *BitmapHeader = PushStruct(Arena, struct bitmap_header);
+		BitmapHeader->FileType = 0x4D42;
+		BitmapHeader->FileSize = 0;  // TODO(rick): Do we need this?
+		BitmapHeader->BitmapOffset = sizeof(struct bitmap_header);
+		BitmapHeader->InfoHeader.Size = sizeof(BitmapHeader->InfoHeader);
+		BitmapHeader->InfoHeader.Width = Buffer->Width;
+		BitmapHeader->InfoHeader.Height = -Buffer->Height;
+		BitmapHeader->InfoHeader.Planes = 1;
+		BitmapHeader->InfoHeader.BitsPerPixel = Buffer->BytesPerPixel * 8;
+		BitmapHeader->InfoHeader.Compression = BI_RGB;
+		BitmapHeader->InfoHeader.SizeOfBitmap = 0;  // TODO(rick): Do we need this?
+		
+		uint32 TempBitmapSize = (Buffer->Width * Buffer->Height) * Buffer->BytesPerPixel;
+		uint8 *BitmapData = PushArray(Arena, TempBitmapSize, uint8);
+
+		uint32 *Source = (uint32 *)Buffer->BitmapMemory;
+		uint32 *Dest = (uint32 *)BitmapData;
+		for(uint32 Y = 0; Y < Buffer->Height; ++Y)
+		{
+			for(uint32 X = 0; X < Buffer->Width; ++X)
+			{
+				*Dest++ = *Source++;
+			}
+		}
+
+		uint32 FileWriteSize = sizeof(struct bitmap_header) + TempBitmapSize;
+
+		Memory->PlatformWriteToFile("Screenshot.bmp", BitmapHeader, FileWriteSize);
+		EndTemporaryArena(TempArena);
+	}
+}
+
 GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
 	struct game_state *GameState = (game_state *)Memory->PermanentStorage;
@@ -682,4 +720,8 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 																  0.80f));
 
 	//RenderDebugGrid(Buffer, V2(GameState->TileSideInPixels, GameState->TileSideInPixels));
+	if(Input->ButtonScreenshot.Tapped)
+	{
+		ExportScreenshot(Memory, &GameState->TransArena, Buffer);
+	}
 }

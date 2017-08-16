@@ -131,6 +131,27 @@ PLATFORM_READ_ENTIRE_FILE_INTO_MEMORY(Win32ReadEntireFileIntoMemory)
 	return(Result);
 }
 
+PLATFORM_WRITE_TO_FILE(Win32WriteToFile)
+{
+	bool32 Result = false;
+	HANDLE File = CreateFileA(FileName, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+	if(File != INVALID_HANDLE_VALUE)
+	{
+		DWORD BytesWritten = 0;
+		if(WriteFile(File, Data, Size, &BytesWritten, 0))
+		{
+			if(BytesWritten == Size)
+			{
+				Result = true;
+			}
+		}
+
+		CloseHandle(File);
+	}
+
+	return(Result);
+}
+
 LRESULT CALLBACK
 Win32WindowsCallback(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
 {
@@ -210,6 +231,10 @@ Win32ProcessPendingMessages(struct game_input *Input)
 					{
 						Win32ProcessKeyboardMessage(&Input->ButtonReset, IsDown);
 					}
+					if(VKCode == 'P')
+					{
+						Win32ProcessKeyboardMessage(&Input->ButtonScreenshot, IsDown);
+					}
 				}
 			} break;
 			default:
@@ -269,6 +294,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, int CmdShow)
 	GameMemory.PermanentStorage = PlatformState.GameMemoryBlock;
 	GameMemory.TransientStorage = ((uint8 *)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize);
 	GameMemory.PlatformReadEntireFileIntoMemory = Win32ReadEntireFileIntoMemory;
+	GameMemory.PlatformWriteToFile = Win32WriteToFile;
 
 	struct game_input Input[2] = {};
 	struct game_input *NewInput = &Input[0];
