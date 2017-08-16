@@ -4,12 +4,9 @@
  *   * Pause etc..
  * * Collision Detection
  * * TEXT RENDERING
- *   * Scoring
  *   * Menus
  *   * Scoreboard? Local or Online
  * * Sound?
- * * Color Schemes / Better graphics
- * * Performance (Smooth 60fps)
  */
 
 #define STB_TRUETYPE_IMPLEMENTATION
@@ -442,6 +439,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	{
 		InitializeArena(&GameState->WorldArena, Memory->PermanentStorageSize - sizeof(struct game_state),
 						(uint8 *)Memory->PermanentStorage + sizeof(struct game_state));
+		InitializeArena(&GameState->TransArena, Memory->TransientStorageSize, Memory->TransientStorage);
 		GameState->Gravity = V2(0.0f, 800.0f);
 		GameState->PlayerEntity.Position = 0.5f * V2(Buffer->Width / 2.0f, Buffer->Height / 2.0f);
 		GameState->PlayerEntity.Velocity = {};
@@ -500,16 +498,12 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			Assert(GameState->FontData.FileSize != 0);
 			Assert(GameState->FontData.FileContents != 0);
 		}
-		GameState->Text = TextToBitmap(&GameState->WorldArena, GameState, 32.0f, "BESTIE!!");
-		GameState->ScoreBitmap = TextToBitmap(&GameState->WorldArena, GameState, 32.0f, (char *)GameState->CurrentScoreString, 0, 128, 32);
+		GameState->Text = TextToBitmap(&GameState->TransArena, GameState, 32.0f, "BESTIE!!");
+		GameState->ScoreBitmap = TextToBitmap(&GameState->TransArena, GameState, 64.0f, (char *)GameState->CurrentScoreString, 0, 256, 48);
 
 		Memory->IsInitialized = true;
 	}
 
-	if(Input->ButtonUp.EndedDown)
-	{
-		GameState->PlayerEntity.Velocity = V2(0.0f, -820.0f);
-	}
 	if(Input->ButtonDown.EndedDown)
 	{
 	}
@@ -522,6 +516,10 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		GameState->PlayerEntity.Velocity = V2(60.0f, -460.0f);
 	}
 #ifdef BLOCKGAME_DEBUG
+	if(Input->ButtonUp.EndedDown)
+	{
+		GameState->PlayerEntity.Velocity = V2(0.0f, -820.0f);
+	}
 	if(Input->ButtonDebugColors.Tapped)
 	{
 		if(GameState->Colors == &GameState->ColorSchemeLight)
@@ -616,7 +614,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 				GameState->PreviousScoreString = TempScoreString;
 				snprintf((char *)GameState->CurrentScoreString, ArrayCount(GameState->CurrentScoreString), "%u", GameState->Score);
 
-				GameState->ScoreBitmap = TextToBitmap(&GameState->WorldArena, GameState, 32.0f,
+				GameState->ScoreBitmap = TextToBitmap(&GameState->WorldArena, GameState, 64.0f,
 													  (char *)GameState->CurrentScoreString, GameState->ScoreBitmap);
 
 				// TODO(rick): Compare CurrentScoreString to PreviousScoreString

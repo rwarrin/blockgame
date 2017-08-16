@@ -193,6 +193,11 @@ Win32ProcessPendingMessages(struct game_input *Input)
 						Win32ProcessKeyboardMessage(&Input->ButtonRight, IsDown);
 					}
 
+					if(VKCode == VK_ESCAPE)
+					{
+						GlobalRunning = false;
+					}
+
 					if(VKCode == 'L')
 					{
 						Win32ProcessKeyboardMessage(&Input->ButtonDebugColors, IsDown);
@@ -256,8 +261,8 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, int CmdShow)
 	Win32ResizeDIBSection(&ScreenBuffer, WindowDims.Width, WindowDims.Height);
 
 	struct game_memory GameMemory = {};
-	GameMemory.PermanentStorageSize = Kilobytes(4096);
-	GameMemory.TransientStorageSize = Kilobytes(200);
+	GameMemory.PermanentStorageSize = Kilobytes(1024);
+	GameMemory.TransientStorageSize = Kilobytes(4096);
 	struct platform_state PlatformState = {};
 	PlatformState.TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
 	PlatformState.GameMemoryBlock = VirtualAlloc(0, PlatformState.TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);

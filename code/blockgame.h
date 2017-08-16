@@ -205,6 +205,7 @@ struct game_state
 	struct world *World;
 
 	struct memory_arena WorldArena;
+	struct memory_arena TransArena;
 	struct game_input Input;
 	struct entity PlayerEntity;
 
