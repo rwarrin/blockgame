@@ -1,5 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <timeapi.h>
 #include <stdio.h>
 
 #include "blockgame_platform.h"
@@ -276,6 +277,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, int CmdShow)
 		return(-2);
 	}
 
+	timeBeginPeriod(1);  // NOTE(rick): High resolution Sleep timing
 	real32 TargetFPS = 120.0f;
 	real32 TargetSecondsPerFrame = 1.0f / TargetFPS;
 	real32 TargetMSPerFrame = TargetSecondsPerFrame * 1000.0f;

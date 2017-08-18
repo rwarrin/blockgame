@@ -2,7 +2,7 @@
 
 SET CompilerFlags=/nologo /Z7 /MTd /Oi -DBLOCKGAME_DEBUG
 REM SET CompilerFlags=/nologo /MTd /Oxi
-SET LinkerFlags=/incremental:no user32.lib gdi32.lib
+SET LinkerFlags=/incremental:no user32.lib gdi32.lib winmm.lib
 
 if not exist ..\build mkdir ..\build
 pushd ..\build
