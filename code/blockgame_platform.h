@@ -18,6 +18,8 @@ typedef double real64;
 #define false 0
 
 #define Assert(Condition) if(!(Condition)) { *(uint32 *)0 = 0; }
+#define InvalidCodePath Assert(!("Invalid Code Path"))
+#define InvalidDefaultCase default: { InvalidCodePath; } break
 
 #define Kilobytes(Value) (Value * 1024LL)
 #define Megabytes(Value) (Kilobytes(Value) * 1024LL)

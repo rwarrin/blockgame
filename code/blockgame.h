@@ -149,6 +149,18 @@ V4(real32 A, real32 B, real32 C, real32 D)
 	return(Result);
 }
 
+inline v4
+V4(v3 A, real32 B)
+{
+	union v4 Result = {};
+	Result.X = A.X;
+	Result.Y = A.Y;
+	Result.Z = A.Z;
+	Result.W = B;
+
+	return(Result);
+}
+
 struct entity
 {
 	v2 Position;
@@ -189,6 +201,22 @@ union color_scheme
 	};
 };
 
+enum GameState
+{
+	GameState_MainMenu = 0,
+	GameState_PauseScreen,
+	GameState_Playing,
+
+	GameState_Count,
+};
+
+struct main_menu
+{
+	uint32 MenuItemsCount;
+	int32 SelectedMenuItem;
+	struct bitmap *MenuItems[5];
+};
+
 struct game_state
 {
 	bool32 IsInitialized;
@@ -201,6 +229,10 @@ struct game_state
 	real32 TileSideInMeters;
 
 	real32 WorldShiftHeight;
+
+	enum GameState State;
+
+	struct main_menu MainMenu;
 
 	struct world *World;
 
@@ -224,6 +256,7 @@ struct game_state
 
 	struct file_data FontData;
 	struct bitmap *Text;
+	struct bitmap *PauseScreenMessage;
 };
 
 #define BLOCKGAME_H

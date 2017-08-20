@@ -214,7 +214,14 @@ Win32ProcessPendingMessages(struct game_input *Input)
 					{
 						Win32ProcessKeyboardMessage(&Input->ButtonRight, IsDown);
 					}
-
+					if(VKCode == VK_SPACE)
+					{
+						Win32ProcessKeyboardMessage(&Input->ButtonPause, IsDown);
+					}
+					if(VKCode == VK_RETURN)
+					{
+						Win32ProcessKeyboardMessage(&Input->ButtonAction, IsDown);
+					}
 					if(VKCode == VK_ESCAPE)
 					{
 						GlobalRunning = false;

@@ -470,6 +470,88 @@ ExportScreenshot(struct game_memory *Memory, struct memory_arena *Arena, struct 
 	}
 }
 
+static void
+PauseGame(struct game_state *GameState, struct game_input *Input, struct game_screen_buffer *Buffer)
+{
+	if(Input->ButtonPause.Tapped)
+	{
+		GameState->State = GameState_Playing;
+	}
+
+	ClearScreenToColor(Buffer, GameState->Colors->BackgroundColor);
+	// TODO(rick): Fix positioning of text
+	DrawTextBitmap(Buffer, V2(10.0f, 10.0f), GameState->ScoreBitmap, V4(GameState->Colors->PlayerColor, 0.8f));
+	DrawTextBitmap(Buffer, V2(10.0f, 60.0f), GameState->PauseScreenMessage, V4(GameState->Colors->PlayerColor, 0.8f));
+}
+
+static void
+MainMenu(struct game_state *GameState, struct game_input *Input, struct game_screen_buffer *Buffer)
+{
+	v2 MenuItemPosition = V2(30.0f, 60.0f);
+	v2 MenuItemNextOffset = V2(0.0f, GameState->MainMenu.MenuItems[0]->Height + 5);
+
+	if(Input->ButtonUp.Tapped)
+	{
+		--GameState->MainMenu.SelectedMenuItem;
+		if(GameState->MainMenu.SelectedMenuItem < 0)
+		{
+			GameState->MainMenu.SelectedMenuItem = GameState->MainMenu.MenuItemsCount - 1;
+		}
+	}
+	else if(Input->ButtonDown.Tapped)
+	{
+		++GameState->MainMenu.SelectedMenuItem;
+		if(GameState->MainMenu.SelectedMenuItem > GameState->MainMenu.MenuItemsCount - 1)
+		{
+			GameState->MainMenu.SelectedMenuItem = 0;
+		}
+	}
+	if((Input->ButtonAction.Tapped) ||
+	   (Input->ButtonPause.Tapped))
+	{
+		// TODO(rick): Named constants or an enum type here to make our menu
+		// options have more meaning than just a number
+		switch(GameState->MainMenu.SelectedMenuItem)
+		{
+			case 0:
+			{
+				GameState->State = GameState_Playing;
+			} break;
+			case 1:
+			{
+				// TODO(rick): Implement this menu item
+			} break;
+			case 2:
+			{
+				// TODO(rick): Implement this menu item
+			} break;
+			InvalidDefaultCase;
+		}
+	}
+
+	// TODO(rick): Game logo here
+
+	ClearScreenToColor(Buffer, GameState->Colors->BackgroundColor);
+	for(uint32 MenuItemIndex = 0;
+		MenuItemIndex < GameState->MainMenu.MenuItemsCount;
+		++MenuItemIndex)
+	{
+		struct bitmap *MenuItem = (GameState->MainMenu.MenuItems[MenuItemIndex]);
+		if(MenuItem)
+		{
+			if(MenuItemIndex == GameState->MainMenu.SelectedMenuItem)
+			{
+				DrawTextBitmap(Buffer, MenuItemPosition, MenuItem, V4(GameState->Colors->Color1, 1.0f));
+			}
+			else
+			{
+				DrawTextBitmap(Buffer, MenuItemPosition, MenuItem, V4(GameState->Colors->PlayerColor, 0.8f));
+			}
+			MenuItemPosition = MenuItemPosition + MenuItemNextOffset;
+		}
+	}
+}
+
 GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
 	struct game_state *GameState = (game_state *)Memory->PermanentStorage;
@@ -538,8 +620,28 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		}
 		GameState->Text = TextToBitmap(&GameState->TransArena, GameState, 32.0f, "BESTIE!!");
 		GameState->ScoreBitmap = TextToBitmap(&GameState->TransArena, GameState, 64.0f, (char *)GameState->CurrentScoreString, 0, 256, 48);
+		GameState->PauseScreenMessage = TextToBitmap(&GameState->TransArena, GameState, 24.0f, "PAUSED");
+
+		GameState->MainMenu.SelectedMenuItem = 0;
+		GameState->MainMenu.MenuItems[0] = TextToBitmap(&GameState->TransArena, GameState, 24.0f, "PLAY GAME");
+		GameState->MainMenu.MenuItems[1] = TextToBitmap(&GameState->TransArena, GameState, 24.0f, "HIGHSCORES");
+		GameState->MainMenu.MenuItems[2] = TextToBitmap(&GameState->TransArena, GameState, 24.0f, "QUIT");
+		GameState->MainMenu.MenuItemsCount = 3;
+		GameState->State = GameState_MainMenu;
 
 		Memory->IsInitialized = true;
+	}
+
+	if(GameState->State == GameState_MainMenu)
+	{
+		MainMenu(GameState, Input, Buffer);
+		return;
+	}
+	else if(GameState->State == GameState_PauseScreen)
+	{
+		PauseGame(GameState, Input, Buffer);
+		return;  // NOTE(rick): Need this to stop the rest of the game loop from
+				 // running.
 	}
 
 	if(Input->ButtonDown.EndedDown)
@@ -552,6 +654,10 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	if(Input->ButtonRight.Tapped)
 	{
 		GameState->PlayerEntity.Velocity = V2(60.0f, -460.0f);
+	}
+	if(Input->ButtonPause.Tapped)
+	{
+		GameState->State = GameState_PauseScreen;
 	}
 #ifdef BLOCKGAME_DEBUG
 	if(Input->ButtonUp.EndedDown)
@@ -713,11 +819,8 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	DrawRectangle(Buffer, GameState->PlayerEntity.Position - (0.5f * GameState->PlayerEntity.Size),
 				  GameState->PlayerEntity.Size, GameState->Colors->PlayerColor);
 
-	DrawTextBitmap(Buffer, GameState->PlayerEntity.Position + V2(10.0f, 25.0f), GameState->Text, V4(0x00, 0xff, 0xff, 1.00f));
-	DrawTextBitmap(Buffer, V2(10, 10), GameState->ScoreBitmap, V4(GameState->Colors->PlayerColor.R,
-																  GameState->Colors->PlayerColor.G,
-																  GameState->Colors->PlayerColor.B,
-																  0.80f));
+	DrawTextBitmap(Buffer, GameState->PlayerEntity.Position + V2(10.0f, 25.0f), GameState->Text, V4(0x00, 0xff, 0xff, 1.0f));
+	DrawTextBitmap(Buffer, V2(10, 10), GameState->ScoreBitmap, V4(GameState->Colors->PlayerColor, 0.80f));
 
 	//RenderDebugGrid(Buffer, V2(GameState->TileSideInPixels, GameState->TileSideInPixels));
 	if(Input->ButtonScreenshot.Tapped)
