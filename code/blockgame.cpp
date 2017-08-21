@@ -67,7 +67,7 @@ DrawRectangle(struct game_screen_buffer *Buffer, v2 Position, v2 Dims, v3 Color)
 }
 
 static void
-DrawBitmap(struct game_screen_buffer *Buffer, v2 Position, struct bitmap *Bitmap)
+DrawBitmap(struct game_screen_buffer *Buffer, v2 Position, struct bitmap *Bitmap, real32 AlphaMod = 1.0f)
 {
 	int32 MinX = (int32)Position.X;
 	int32 MinY = (int32)Position.Y;
@@ -109,7 +109,6 @@ DrawBitmap(struct game_screen_buffer *Buffer, v2 Position, struct bitmap *Bitmap
 		uint32 *SourcePixel = (uint32 *)SourceRow;
 		for(uint32 X = MinX; X < MaxX; ++X)
 		{
-			real32 AlphaMod = 1.0f;
 			real32 SourceAlpha = (real32)((*SourcePixel >> 24) & 0xff);
 			real32 RSA = (SourceAlpha / 255.0f) * AlphaMod;
 			real32 SourceRed = AlphaMod * (real32)((*SourcePixel >> 16) & 0xff);
@@ -621,9 +620,8 @@ MainMenu(struct game_state *GameState, struct game_input *Input, struct game_scr
 		}
 	}
 
-
 	ClearScreenToColor(Buffer, GameState->Colors->BackgroundColor);
-	DrawBitmap(Buffer, V2(90.0f, 10.0f), GameState->Logo);
+	DrawBitmap(Buffer, V2(90.0f, 10.0f), GameState->Logo, 1.0f);
 	for(uint32 MenuItemIndex = 0;
 		MenuItemIndex < GameState->MainMenu.MenuItemsCount;
 		++MenuItemIndex)
