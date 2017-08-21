@@ -92,6 +92,9 @@ typedef PLATFORM_READ_ENTIRE_FILE_INTO_MEMORY(platform_read_entire_file_into_mem
 #define PLATFORM_WRITE_TO_FILE(name) bool32 name(char *FileName, void *Data, uint32 Size)
 typedef PLATFORM_WRITE_TO_FILE(platform_write_to_file);
 
+#define PLATFORM_FREE_MEMORY(name) void name(void *Data)
+typedef PLATFORM_FREE_MEMORY(platform_free_memory);
+
 struct game_memory
 {
 	bool32 IsInitialized;
@@ -104,6 +107,7 @@ struct game_memory
 
 	platform_read_entire_file_into_memory *PlatformReadEntireFileIntoMemory;
 	platform_write_to_file *PlatformWriteToFile;
+	platform_free_memory *PlatformFreeMemory;
 };
 
 struct memory_arena

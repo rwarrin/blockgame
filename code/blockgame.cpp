@@ -12,6 +12,7 @@
 #define STB_TRUETYPE_IMPLEMENTATION
 #define STBTT_STATIC
 #include "stb_truetype.h"
+#include "blockgame_math.cpp"
 
 static void
 ClearScreenToColor(struct game_screen_buffer *Buffer, v3 Color)
@@ -66,31 +67,76 @@ DrawRectangle(struct game_screen_buffer *Buffer, v2 Position, v2 Dims, v3 Color)
 }
 
 static void
-DrawBitmap(struct game_screen_buffer *Buffer, v2 Position, struct bitmap Bitmap)
+DrawBitmap(struct game_screen_buffer *Buffer, v2 Position, struct bitmap *Bitmap)
 {
 	int32 MinX = (int32)Position.X;
 	int32 MinY = (int32)Position.Y;
-	int32 MaxX = (int32)Position.X + Bitmap.Width;
-	int32 MaxY = (int32)Position.Y + Bitmap.Height;
+	int32 MaxX = (int32)Position.X + Bitmap->Width;
+	int32 MaxY = (int32)Position.Y + Bitmap->Height;
 
-	if(MinX < 0) { MinX = 0; }
-	if(MinY < 0) { MinY = 0; }
-	if(MaxX > Buffer->Width) { MaxX = Buffer->Width; }
-	if(MaxY > Buffer->Height) { MaxY = Buffer->Height; }
+	int32 SourceOffsetX = 0;
+	if(MinX < 0)
+	{
+		SourceOffsetX = -MinX;
+		MinX = 0;
+	}
+
+	int32 SourceOffsetY = 0;
+	if(MinY < 0)
+	{
+		SourceOffsetY = -MinY;
+		MinY = 0;
+	}
+
+	if(MaxX > Buffer->Width)
+	{
+		MaxX = Buffer->Width;
+	}
+
+	if(MaxY > Buffer->Height)
+	{
+		MaxY = Buffer->Height;
+	}
 
 	if(MaxX < MinX) { MaxX = MinX; }
 	if(MaxY < MinY) { MaxY = MinY; }
 
-	uint8 *Row = ((uint8*)Buffer->BitmapMemory + (MinY * Buffer->Pitch) + (MinX * Buffer->BytesPerPixel));
-	uint32 *SourcePixel = (uint32 *)Bitmap.BitmapMemory;
+	uint8 *DestRow = ((uint8*)Buffer->BitmapMemory + (MinY * Buffer->Pitch) + (MinX * Buffer->BytesPerPixel));
+	uint8 *SourceRow = ((uint8*)Bitmap->BitmapMemory + (SourceOffsetY * Bitmap->Pitch) + (SourceOffsetX * Bitmap->BytesPerPixel));
 	for(uint32 Y = MinY; Y < MaxY; ++Y)
 	{
-		uint32 *Pixel = (uint32 *)Row;
+		uint32 *Pixel = (uint32 *)DestRow;
+		uint32 *SourcePixel = (uint32 *)SourceRow;
 		for(uint32 X = MinX; X < MaxX; ++X)
 		{
-			*Pixel++ = *SourcePixel++;
+			real32 AlphaMod = 1.0f;
+			real32 SourceAlpha = (real32)((*SourcePixel >> 24) & 0xff);
+			real32 RSA = (SourceAlpha / 255.0f) * AlphaMod;
+			real32 SourceRed = AlphaMod * (real32)((*SourcePixel >> 16) & 0xff);
+			real32 SourceGreen = AlphaMod * (real32)((*SourcePixel >> 8) & 0xff);
+			real32 SourceBlue = AlphaMod * (real32)((*SourcePixel >> 0) & 0xff);
+
+			real32 DestAlpha = (real32)((*Pixel >> 24) & 0xff);
+			real32 DestRed = (real32)((*Pixel >> 16) & 0xff);
+			real32 DestGreen = (real32)((*Pixel >> 8) & 0xff);
+			real32 DestBlue = (real32)((*Pixel >> 0) & 0xff);
+			real32 RDA = DestAlpha / 255.0f;
+
+			real32 InverseRSA = 1.0f - RSA;
+			real32 OutAlpha = 255.0f * (RSA + RDA - RSA * RDA);
+			real32 OutRed = (SourceRed * RSA) + (DestRed * (1.0f  - RSA));
+			real32 OutGreen = (SourceGreen * RSA) + (DestGreen * (1.0f  - RSA));
+			real32 OutBlue = (SourceBlue * RSA) + (DestBlue * (1.0f  - RSA));
+
+			*Pixel = ( ((uint32)(OutAlpha + 0.5f) << 24) |
+						((uint32)(OutRed + 0.5f) << 16) |
+						((uint32)(OutGreen + 0.5f) << 8) |
+						((uint32)(OutBlue + 0.5f) << 0) );
+
+			Pixel++, SourcePixel++;
 		}
-		Row += Buffer->Pitch;
+		DestRow += Buffer->Pitch;
+		SourceRow += Bitmap->Pitch;
 	}
 }
 
@@ -470,6 +516,52 @@ ExportScreenshot(struct game_memory *Memory, struct memory_arena *Arena, struct 
 	}
 }
 
+static struct bitmap *
+LoadBitmapFromFile(struct memory_arena *PermArena, struct memory_arena *TransArena,
+				   struct game_memory *Memory, char *Filename)
+{
+	struct bitmap *Result = 0;
+	struct file_data FileData = Memory->PlatformReadEntireFileIntoMemory(Filename);
+	if(FileData.FileContents)
+	{
+		Result = PushStruct(PermArena, struct bitmap);
+		Assert(Result);
+
+		struct bitmap_header *BitmapHeader = (struct bitmap_header *)FileData.FileContents;
+		Result->Width = BitmapHeader->InfoHeader.Width;
+		Result->Height = Abs(BitmapHeader->InfoHeader.Height);
+		Result->BytesPerPixel = BitmapHeader->InfoHeader.BitsPerPixel / 8;
+		Result->Pitch = Result->Width * Result->BytesPerPixel;
+
+		uint32 BitmapMemorySize = (Result->Width * Result->Height) * Result->BytesPerPixel;
+		Result->BitmapMemory = PushSize(TransArena, BitmapMemorySize);
+		Assert(Result->BitmapMemory);
+
+		if(Result->BitmapMemory)
+		{
+			uint8 *SourceRow = (uint8 *)(FileData.FileContents + BitmapHeader->BitmapOffset);
+			SourceRow = SourceRow + ((Result->Height - 1) * Result->Pitch);
+			uint8 *DestRow = (uint8 *)Result->BitmapMemory;
+			for(uint32 Y = 0; Y < Result->Height; ++Y)
+			{
+				uint32 *SourcePixel = (uint32 *)SourceRow;
+				uint32 *DestPixel = (uint32 *)DestRow;
+				for(uint32 X = 0; X < Result->Width; ++X)
+				{
+					*DestPixel++ = *SourcePixel++;
+				}
+
+				SourceRow -= Result->Pitch;
+				DestRow += Result->Pitch;
+			}
+		}
+
+		Memory->PlatformFreeMemory(FileData.FileContents);
+	}
+
+	return(Result);
+}
+
 static void
 PauseGame(struct game_state *GameState, struct game_input *Input, struct game_screen_buffer *Buffer)
 {
@@ -487,7 +579,7 @@ PauseGame(struct game_state *GameState, struct game_input *Input, struct game_sc
 static void
 MainMenu(struct game_state *GameState, struct game_input *Input, struct game_screen_buffer *Buffer)
 {
-	v2 MenuItemPosition = V2(30.0f, 60.0f);
+	v2 MenuItemPosition = V2(30.0f, 260.0f);
 	v2 MenuItemNextOffset = V2(0.0f, GameState->MainMenu.MenuItems[0]->Height + 5);
 
 	if(Input->ButtonUp.Tapped)
@@ -529,9 +621,9 @@ MainMenu(struct game_state *GameState, struct game_input *Input, struct game_scr
 		}
 	}
 
-	// TODO(rick): Game logo here
 
 	ClearScreenToColor(Buffer, GameState->Colors->BackgroundColor);
+	DrawBitmap(Buffer, V2(90.0f, 10.0f), GameState->Logo);
 	for(uint32 MenuItemIndex = 0;
 		MenuItemIndex < GameState->MainMenu.MenuItemsCount;
 		++MenuItemIndex)
@@ -557,6 +649,11 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	struct game_state *GameState = (game_state *)Memory->PermanentStorage;
 	if(!Memory->IsInitialized)
 	{
+		// TODO(rick): We're leaking memory on restart, we need to figure out
+		// where this is coming from. Most likely it's the bitmaps for fonts and
+		// images, as well as the font loading. We may not be making new
+		// allocations and it's just growing as we consume memory we've reserved
+		// and the OS is now handing it over to us.
 		InitializeArena(&GameState->WorldArena, Memory->PermanentStorageSize - sizeof(struct game_state),
 						(uint8 *)Memory->PermanentStorage + sizeof(struct game_state));
 		InitializeArena(&GameState->TransArena, Memory->TransientStorageSize, Memory->TransientStorage);
@@ -614,6 +711,10 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 		if(GameState->FontData.FileSize == 0)
 		{
+			if(GameState->FontData.FileContents)
+			{
+				Memory->PlatformFreeMemory(GameState->FontData.FileContents);
+			}
 			GameState->FontData = Memory->PlatformReadEntireFileIntoMemory("arial.ttf");
 			Assert(GameState->FontData.FileSize != 0);
 			Assert(GameState->FontData.FileContents != 0);
@@ -628,6 +729,8 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		GameState->MainMenu.MenuItems[2] = TextToBitmap(&GameState->TransArena, GameState, 24.0f, "QUIT");
 		GameState->MainMenu.MenuItemsCount = 3;
 		GameState->State = GameState_MainMenu;
+
+		GameState->Logo = LoadBitmapFromFile(&GameState->WorldArena, &GameState->TransArena, Memory, "logo.bmp");
 
 		Memory->IsInitialized = true;
 	}

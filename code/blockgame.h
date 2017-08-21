@@ -257,6 +257,7 @@ struct game_state
 	struct file_data FontData;
 	struct bitmap *Text;
 	struct bitmap *PauseScreenMessage;
+	struct bitmap *Logo;
 };
 
 #define BLOCKGAME_H

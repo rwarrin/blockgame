@@ -153,6 +153,14 @@ PLATFORM_WRITE_TO_FILE(Win32WriteToFile)
 	return(Result);
 }
 
+PLATFORM_FREE_MEMORY(Win32FreeMemory)
+{
+	if(Data)
+	{
+		VirtualFree(Data, 0, MEM_RELEASE | MEM_DECOMMIT);
+	}
+}
+
 LRESULT CALLBACK
 Win32WindowsCallback(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
 {
@@ -304,6 +312,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, int CmdShow)
 	GameMemory.TransientStorage = ((uint8 *)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize);
 	GameMemory.PlatformReadEntireFileIntoMemory = Win32ReadEntireFileIntoMemory;
 	GameMemory.PlatformWriteToFile = Win32WriteToFile;
+	GameMemory.PlatformFreeMemory = Win32FreeMemory;
 
 	struct game_input Input[2] = {};
 	struct game_input *NewInput = &Input[0];
