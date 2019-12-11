@@ -204,8 +204,10 @@ union color_scheme
 enum GameState
 {
 	GameState_MainMenu = 0,
+	GameState_NewGame,
 	GameState_PauseScreen,
 	GameState_Playing,
+	GameState_GameOver,
 
 	GameState_Count,
 };
@@ -258,6 +260,7 @@ struct game_state
 	struct bitmap *Text;
 	struct bitmap *PauseScreenMessage;
 	struct bitmap *Logo;
+	struct bitmap *GameOverMessage;
 };
 
 #define BLOCKGAME_H

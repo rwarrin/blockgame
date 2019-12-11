@@ -606,7 +606,7 @@ MainMenu(struct game_state *GameState, struct game_input *Input, struct game_scr
 		{
 			case 0:
 			{
-				GameState->State = GameState_Playing;
+				GameState->State = GameState_NewGame;
 			} break;
 			case 1:
 			{
@@ -642,10 +642,28 @@ MainMenu(struct game_state *GameState, struct game_input *Input, struct game_scr
 	}
 }
 
+static void
+GameOver(struct game_state *GameState, struct game_input *Input, struct game_screen_buffer *Buffer)
+{
+	if((Input->ButtonAction.Tapped) ||
+	   (Input->ButtonPause.Tapped))
+	{
+		GameState->State = GameState_MainMenu;
+	}
+
+	ClearScreenToColor(Buffer, GameState->Colors->BackgroundColor);
+	DrawTextBitmap(Buffer,
+				   V2((Buffer->Width / 2.0f) - (GameState->ScoreBitmap->Width / 2.0f), Buffer->Height / 2.0f - GameState->ScoreBitmap->Height - 30.0f),
+				   GameState->ScoreBitmap, V4(GameState->Colors->PlayerColor, 0.8f));
+	DrawTextBitmap(Buffer,
+				   V2((Buffer->Width / 2.0f) - (GameState->ScoreBitmap->Width / 1.2f), Buffer->Height / 2.0f - GameState->GameOverMessage->Height + 10.0f),
+				   GameState->GameOverMessage, V4(GameState->Colors->PlayerColor, 0.8f));
+}
+
 GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
 	struct game_state *GameState = (game_state *)Memory->PermanentStorage;
-	if(!Memory->IsInitialized)
+	if((!Memory->IsInitialized) || (GameState->State == GameState_NewGame))
 	{
 		// TODO(rick): We're leaking memory on restart, we need to figure out
 		// where this is coming from. Most likely it's the bitmaps for fonts and
@@ -720,13 +738,14 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		GameState->Text = TextToBitmap(&GameState->TransArena, GameState, 32.0f, "BESTIE!!");
 		GameState->ScoreBitmap = TextToBitmap(&GameState->TransArena, GameState, 64.0f, (char *)GameState->CurrentScoreString, 0, 256, 48);
 		GameState->PauseScreenMessage = TextToBitmap(&GameState->TransArena, GameState, 24.0f, "PAUSED");
+		GameState->GameOverMessage = TextToBitmap(&GameState->TransArena, GameState, 20.0f, "PRESS ENTER TO RETURN TO THE MAIN MENU");
 
 		GameState->MainMenu.SelectedMenuItem = 0;
 		GameState->MainMenu.MenuItems[0] = TextToBitmap(&GameState->TransArena, GameState, 24.0f, "PLAY GAME");
 		GameState->MainMenu.MenuItems[1] = TextToBitmap(&GameState->TransArena, GameState, 24.0f, "HIGHSCORES");
 		GameState->MainMenu.MenuItems[2] = TextToBitmap(&GameState->TransArena, GameState, 24.0f, "QUIT");
 		GameState->MainMenu.MenuItemsCount = 3;
-		GameState->State = GameState_MainMenu;
+		GameState->State = GameState_Playing;
 
 		GameState->Logo = LoadBitmapFromFile(&GameState->WorldArena, &GameState->TransArena, Memory, "logo.bmp");
 
@@ -743,6 +762,11 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		PauseGame(GameState, Input, Buffer);
 		return;  // NOTE(rick): Need this to stop the rest of the game loop from
 				 // running.
+	}
+	else if(GameState->State == GameState_GameOver)
+	{
+		GameOver(GameState, Input, Buffer);
+		return;
 	}
 
 	if(Input->ButtonDown.EndedDown)
@@ -862,13 +886,6 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 				GameState->ScoreBitmap = TextToBitmap(&GameState->WorldArena, GameState, 64.0f,
 													  (char *)GameState->CurrentScoreString, GameState->ScoreBitmap);
 
-				// TODO(rick): Compare CurrentScoreString to PreviousScoreString
-				// to determine which character indexes have changed. Whichever
-				// have changed then we should recreate the character bitmap.
-				// TODO(rick): We need to think about this a bit, obviously only
-				// creating a few bitmaps at a time is better than all at once,
-				// but maybe just creating the score bitmap as one bitmap is
-				// better.. definitely easier, plus we get proper kerning.
 			}
 			uint32 *CellData = Room->RoomData;
 			for(uint32 Y = 0; Y < GameState->World->RoomHeightInGridCells; ++Y)
@@ -884,15 +901,22 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 														CellPosition, CellDimensions);
 						if(Collided)
 						{
+							GameState->State = GameState_GameOver;
+#if 0
 							Room->RoomColor = V3(0x00, 0x00, 0x00);
 							GameState->PlayerEntity.Velocity = V2(0.0f, 0.0f);
 							GameState->Gravity = V2(0.0f, 0.0f);
+#endif
 						}
 					}
 					++CellData;
 				}
 			}
 		}
+	}
+	if(GameState->PlayerEntity.Position.Y > Buffer->Height + GameState->PlayerEntity.Size.Height)
+	{
+		GameState->State = GameState_GameOver;
 	}
 
 	ClearScreenToColor(Buffer, GameState->Colors->BackgroundColor);
@@ -920,7 +944,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	DrawRectangle(Buffer, GameState->PlayerEntity.Position - (0.5f * GameState->PlayerEntity.Size),
 				  GameState->PlayerEntity.Size, GameState->Colors->PlayerColor);
 
-	DrawTextBitmap(Buffer, GameState->PlayerEntity.Position + V2(10.0f, 25.0f), GameState->Text, V4(0x00, 0xff, 0xff, 1.0f));
+	//DrawTextBitmap(Buffer, GameState->PlayerEntity.Position + V2(10.0f, 25.0f), GameState->Text, V4(0x00, 0xff, 0xff, 1.0f));
 	DrawTextBitmap(Buffer, V2(10, 10), GameState->ScoreBitmap, V4(GameState->Colors->PlayerColor, 0.80f));
 
 	//RenderDebugGrid(Buffer, V2(GameState->TileSideInPixels, GameState->TileSideInPixels));
